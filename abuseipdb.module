@@ -1,0 +1,190 @@
+<?php
+
+/**
+ * @file
+ * Developed by Gabor Szanto.
+ *  hello@szantogabor.com
+ *  http://szantogabor.com
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function abuseipdb_permission() {
+  return array(
+    'administer abuseipdb' => array(
+      'title' => t('Administer AbusIPDB settings'),
+    ),
+    'skip abuseipdb check' => array(
+      'title' => t('Skip AbusIPDB checking.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function abuseipdb_menu() {
+  $items = array();
+
+  $items['admin/config/services/abuseipdb'] = array(
+    'title' => 'AbuseIPDB',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('abuseipdb_admin_general'),
+    'file' => 'abuseipdb.admin.inc',
+    'access arguments' => array('administer abuseipdb'),
+  );
+
+  $items['admin/config/services/abuseipdb/general'] = array(
+    'title' => 'General settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -100,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function abuseipdb_form_alter(&$form, &$form_state, $form_id) {
+  if (!user_access('skip abuseipdb check')) {
+    $form_ids = preg_split("/\r\n|\n|\r/", variable_get('abuseipdb_form_ids', ''));
+
+    foreach ($form_ids as $id) {
+      if ($form_id == $id) {
+        array_unshift($form['#validate'], 'abuseipdb_check_form');
+      }
+    }
+  }
+}
+
+/**
+ * Form validation to check ip address.
+ */
+function abuseipdb_check_form($form, &$form_state) {
+  $user = $GLOBALS['user'];
+  $ip = $user->hostname;
+
+  $result = abuseipdb_get_result($ip);
+
+  if (!empty($result)) {
+    form_set_error('submit', t('You are not allowed to do this due to the ip validation.'));
+    watchdog('abusopdb', 'Registered AbuseIPDB try in form %formly from %ip.', array('%formly' => $form['#id'], '%ip' => $ip), WATCHDOG_NOTICE, $link = NULL);
+    if (variable_get('abuseipdb_block', FALSE)) {
+      db_insert('blocked_ips')
+        ->fields(array('ip' => $ip))
+        ->execute();
+    }
+  }
+
+}
+
+/**
+ * Get result from abuseipdb.
+ */
+function abuseipdb_get_result($ip, $days = 365) {
+  $api_key = variable_get('abuseipdb_api_key', FALSE);
+
+  if ($api_key) {
+    $link = "https://www.abuseipdb.com/check/$ip/json";
+    $query = array('key' => $api_key);
+
+    if (is_int($days)) {
+      $query += array('days' => $days);
+    }
+
+    $url = url($link, array(
+      'query' => $query,
+      'external' => TRUE,
+      'absolute' => TRUE,
+      'https' => TRUE,
+    ));
+
+    $cid = 'abuseipdb' . $ip;
+
+    // Only process new request if not emergency,
+    if (!variable_get('abuseipdb_emergency', FALSE)) {
+      if (!$cache = cache_get($cid)) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        $json = curl_exec($ch);
+        curl_close($ch);
+
+        if ($json) {
+          $decoded = json_decode($json);
+          cache_set($cid, $decoded);
+          return $decoded;
+        }
+        return FALSE;
+      }
+      else {
+        return $cache->data;
+      }
+    }
+
+    // If emergency, only try from cache.
+    if (!$cache = cache_get($cid)) {
+      return $cache->data;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Helper function to get abuseipdb categories.
+ */
+function abuseipdb_mapping() {
+  return array(
+    3 => array(
+      'title' => 'Fraud Orders',
+      'desc' => 'Fraudulent orders.',
+    ),
+    4 => array(
+      'title' => 'DDoS Attack',
+      'desc' => 'Participating in distributed denial-of-service (usually part of botnet).',
+    ),
+    9 => array(
+      'title' => 'Open Proxy',
+      'desc' => 'Open proxy, open relay, or Tor exit node.',
+    ),
+    10 => array(
+      'title' => 'Web Spam',
+      'desc' => 'Comment/forum spam, HTTP referer spam, or other CMS spam.',
+    ),
+    11 => array(
+      'title' => 'Email Spam',
+      'desc' => 'Spam email content, infected attachments, phishing emails, and spoofed senders (typically via exploited host or SMTP server abuse). Note: Limit comments to only relevent information (instead of log dumps) and be sure to remove PII if you want to remain anonymous.',
+    ),
+    14 => array(
+      'title' => 'Port Scan',
+      'desc' => 'Scanning for open ports and vulnerable services.',
+    ),
+    18 => array(
+      'title' => 'Brute-Force',
+      'desc' => 'Credential brute-force attacks on webpage logins and services like SSH, FTP, SIP, SMTP, RDP, etc. This category is seperate from DDoS attacks.',
+    ),
+    19 => array(
+      'title' => 'Bad Web Bot',
+      'desc' => 'Webpage scraping (for email addresses, content, etc) and crawlers that do not honor robots.txt. Excessive requests and user agent spoofing can also be reported here.',
+    ),
+    20 => array(
+      'title' => 'Exploited Host',
+      'desc' => 'Host is likely infected with malware and being used for other attacks or to host malicious content. The host owner may not be aware of the compromise. This category is often used in combination with other attack categories.',
+    ),
+    21 => array(
+      'title' => 'Web App Attack',
+      'desc' => 'Attempts to probe for or exploit installed web applications such as a CMS like WordPress/Drupal, e-commerce solutions, forum software, phpMyAdmin and various other software plugins/solutions.',
+    ),
+    22 => array(
+      'title' => 'SSH',
+      'desc' => 'Secure Shell (SSH) abuse. Use this category in combination with more specific categories.',
+    ),
+    23 => array(
+      'title' => 'IoT Targeted',
+      'desc' => 'Abuse was targeted at an "Internet of Things" type device. Include information about what type of device was targeted in the comments.',
+    ),
+  );
+}
