@@ -43,6 +43,7 @@ function abuseipdb_menu() {
 
   $items['admin/config/services/abuseipdb/report'] = array(
     'title' => 'Report an IP',
+    'type' => MENU_LOCAL_TASK,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('abuseipdb_admin_report'),
     'file' => 'abuseipdb.admin.inc',
@@ -139,6 +140,56 @@ function abuseipdb_get_result($ip, $days = 365) {
 
   return FALSE;
 }
+
+/**
+ * Report an ip address to AbuseIPDB.
+ *
+ * @param string $ip
+ *   The valid ip address.
+ * @param array $categories
+ *   The key(s) of the categories
+ *   @link https://www.abuseipdb.com/api.html
+ * @param string $comment
+ *   The comment text.
+ */
+function abuseipdb_report_ip($ip, $categories = array(), $comment = NULL) {
+  $api_key = variable_get('abuseipdb_api_key', FALSE);
+
+  if ($api_key) {
+    $query = array(
+      'key' => $api_key,
+      'ip' => $ip,
+      'category' => implode(',', $categories),
+      'comment' => $comment,
+    );
+
+    $link = "https://www.abuseipdb.com/report/json";
+
+    $url = url($link, array(
+      'query' => $query,
+      'external' => TRUE,
+      'absolute' => TRUE,
+      'https' => TRUE,
+    ));
+
+    // Only process new request if not emergency,
+    if (!variable_get('abuseipdb_emergency', FALSE)) {
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+      $json = curl_exec($ch);
+      curl_close($ch);
+
+      if ($json) {
+        $decoded = json_decode($json);
+        return $decoded;
+      }
+    }
+  }
+
+  return FALSE;
+}
+
 
 /**
  * Helper function to get abuseipdb categories.

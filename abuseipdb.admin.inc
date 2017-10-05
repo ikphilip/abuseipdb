@@ -7,6 +7,9 @@
  *  http://szantogabor.com
  */
 
+/**
+ * Form builder for general settings.
+ */
 function abuseipdb_admin_general($form, &$form_state) {
 
   $form['abuseipdb_api_key'] = array(
@@ -38,4 +41,64 @@ function abuseipdb_admin_general($form, &$form_state) {
   );
 
   return system_settings_form($form);
+}
+
+/**
+ * Form builder to report an ip address to AbuseIPDB
+ */
+function abuseipdb_admin_report($form, &$form_state) {
+  $form['ip'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Ip address'),
+    '#description' => t('The ip address to be reported.'),
+    '#required' => TRUE,
+  );
+
+  $form['comment'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Comment'),
+    '#description' => t('Why do you want to report.'),
+  );
+
+  $map = abuseipdb_get_categories_mapping();
+  $categories = array();
+  $description = array();
+  foreach ($map as $key => $value) {
+    $categories[$key] = $value['title'];
+    $description[] = $value['title'] . ': ' . $value['desc'];
+  }
+
+  $form['categories'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Categories'),
+    '#options' => $categories,
+    '#description' => theme('list', array('items' => $description)),
+  );
+
+  $form['block'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Block ip'),
+    '#description' => t('Block ip address after reported.'),
+    '#default_value' => FALSE,
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Report to AbuseIPDB'),
+  );
+
+  return $form;
+}
+
+/**
+ * Form validation before report an ip to AbuseIPDB.
+ */
+function abuseipdb_admin_report_validate($form, &$form_state) {
+  if (!filter_var($form_state['values']['ip'], FILTER_VALIDATE_IP)) {
+    form_set_error('ip', t('Please enter a valid ip address!'));
+  }
+}
+
+function abuseipdb_admin_report_submit($form, &$form_state) {
+
 }
