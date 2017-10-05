@@ -41,6 +41,14 @@ function abuseipdb_menu() {
     'weight' => -100,
   );
 
+  $items['admin/config/services/abuseipdb/report'] = array(
+    'title' => 'Report an IP',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('abuseipdb_admin_report'),
+    'file' => 'abuseipdb.admin.inc',
+    'access arguments' => array('administer abuseipdb'),
+  );
+
   return $items;
 }
 
@@ -63,14 +71,13 @@ function abuseipdb_form_alter(&$form, &$form_state, $form_id) {
  * Form validation to check ip address.
  */
 function abuseipdb_check_form($form, &$form_state) {
-  $user = $GLOBALS['user'];
-  $ip = $user->hostname;
+  $ip = $_SERVER['REMOTE_ADDR'];
 
   $result = abuseipdb_get_result($ip);
 
   if (!empty($result)) {
     form_set_error('submit', t('You are not allowed to do this due to the ip validation.'));
-    watchdog('abusopdb', 'Registered AbuseIPDB try in form %formly from %ip.', array('%formly' => $form['#id'], '%ip' => $ip), WATCHDOG_NOTICE, $link = NULL);
+    watchdog('abusepdb', 'Registered AbuseIPDB try in form %formly from %ip.', array('%formly' => $form['#id'], '%ip' => $ip), WATCHDOG_NOTICE, $link = NULL);
     if (variable_get('abuseipdb_block', FALSE)) {
       db_insert('blocked_ips')
         ->fields(array('ip' => $ip))
@@ -136,55 +143,55 @@ function abuseipdb_get_result($ip, $days = 365) {
 /**
  * Helper function to get abuseipdb categories.
  */
-function abuseipdb_mapping() {
+function abuseipdb_get_categories_mapping() {
   return array(
     3 => array(
-      'title' => 'Fraud Orders',
-      'desc' => 'Fraudulent orders.',
+      'title' => t('Fraud Orders'),
+      'desc' => t('Fraudulent orders.'),
     ),
     4 => array(
-      'title' => 'DDoS Attack',
-      'desc' => 'Participating in distributed denial-of-service (usually part of botnet).',
+      'title' => t('DDoS Attack'),
+      'desc' => t('Participating in distributed denial-of-service (usually part of botnet).'),
     ),
     9 => array(
-      'title' => 'Open Proxy',
-      'desc' => 'Open proxy, open relay, or Tor exit node.',
+      'title' => t('Open Proxy'),
+      'desc' => t('Open proxy, open relay, or Tor exit node.'),
     ),
     10 => array(
-      'title' => 'Web Spam',
-      'desc' => 'Comment/forum spam, HTTP referer spam, or other CMS spam.',
+      'title' => t('Web Spam'),
+      'desc' => t('Comment/forum spam, HTTP referer spam, or other CMS spam.'),
     ),
     11 => array(
-      'title' => 'Email Spam',
-      'desc' => 'Spam email content, infected attachments, phishing emails, and spoofed senders (typically via exploited host or SMTP server abuse). Note: Limit comments to only relevent information (instead of log dumps) and be sure to remove PII if you want to remain anonymous.',
+      'title' => t('Email Spam'),
+      'desc' => t('Spam email content, infected attachments, phishing emails, and spoofed senders (typically via exploited host or SMTP server abuse). Note: Limit comments to only relevent information (instead of log dumps) and be sure to remove PII if you want to remain anonymous.'),
     ),
     14 => array(
-      'title' => 'Port Scan',
-      'desc' => 'Scanning for open ports and vulnerable services.',
+      'title' => t('Port Scan'),
+      'desc' => t('Scanning for open ports and vulnerable services.'),
     ),
     18 => array(
-      'title' => 'Brute-Force',
-      'desc' => 'Credential brute-force attacks on webpage logins and services like SSH, FTP, SIP, SMTP, RDP, etc. This category is seperate from DDoS attacks.',
+      'title' => t('Brute-Force'),
+      'desc' => t('Credential brute-force attacks on webpage logins and services like SSH, FTP, SIP, SMTP, RDP, etc. This category is seperate from DDoS attacks.'),
     ),
     19 => array(
-      'title' => 'Bad Web Bot',
-      'desc' => 'Webpage scraping (for email addresses, content, etc) and crawlers that do not honor robots.txt. Excessive requests and user agent spoofing can also be reported here.',
+      'title' => t('Bad Web Bot'),
+      'desc' => t('Webpage scraping (for email addresses, content, etc) and crawlers that do not honor robots.txt. Excessive requests and user agent spoofing can also be reported here.'),
     ),
     20 => array(
-      'title' => 'Exploited Host',
-      'desc' => 'Host is likely infected with malware and being used for other attacks or to host malicious content. The host owner may not be aware of the compromise. This category is often used in combination with other attack categories.',
+      'title' => t('Exploited Host'),
+      'desc' => t('Host is likely infected with malware and being used for other attacks or to host malicious content. The host owner may not be aware of the compromise. This category is often used in combination with other attack categories.'),
     ),
     21 => array(
-      'title' => 'Web App Attack',
-      'desc' => 'Attempts to probe for or exploit installed web applications such as a CMS like WordPress/Drupal, e-commerce solutions, forum software, phpMyAdmin and various other software plugins/solutions.',
+      'title' => t('Web App Attack'),
+      'desc' => t('Attempts to probe for or exploit installed web applications such as a CMS like WordPress/Drupal, e-commerce solutions, forum software, phpMyAdmin and various other software plugins/solutions.'),
     ),
     22 => array(
-      'title' => 'SSH',
-      'desc' => 'Secure Shell (SSH) abuse. Use this category in combination with more specific categories.',
+      'title' => t('SSH'),
+      'desc' => t('Secure Shell (SSH) abuse. Use this category in combination with more specific categories.'),
     ),
     23 => array(
-      'title' => 'IoT Targeted',
-      'desc' => 'Abuse was targeted at an "Internet of Things" type device. Include information about what type of device was targeted in the comments.',
+      'title' => t('IoT Targeted'),
+      'desc' => t('Abuse was targeted at an "Internet of Things" type device. Include information about what type of device was targeted in the comments.'),
     ),
   );
 }
