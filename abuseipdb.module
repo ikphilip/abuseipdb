@@ -41,6 +41,16 @@ function abuseipdb_menu() {
     'weight' => -100,
   );
 
+  $items['admin/config/services/abuseipdb/form-check'] = array(
+    'title' => 'Form check',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('abuseipdb_admin_form_check'),
+    'file' => 'abuseipdb.admin.inc',
+    'access arguments' => array('administer abuseipdb'),
+    'weight' => 0,
+  );
+
   $items['admin/config/services/abuseipdb/report'] = array(
     'title' => 'Report an IP',
     'type' => MENU_LOCAL_TASK,
@@ -48,6 +58,7 @@ function abuseipdb_menu() {
     'page arguments' => array('abuseipdb_admin_report'),
     'file' => 'abuseipdb.admin.inc',
     'access arguments' => array('administer abuseipdb'),
+    'weight' => 100,
   );
 
   return $items;
@@ -79,7 +90,7 @@ function abuseipdb_check_form($form, &$form_state) {
   if (!empty($result)) {
     form_set_error('submit', t('You are not allowed to do this due to the ip validation.'));
     watchdog('abusepdb', 'Registered AbuseIPDB try in form %formly from %ip.', array('%formly' => $form['#id'], '%ip' => $ip), WATCHDOG_NOTICE, $link = NULL);
-    if (variable_get('abuseipdb_block', FALSE)) {
+    if (variable_get('abuseipdb_block_form', FALSE)) {
       $query = db_merge('blocked_ips')
         ->key(array('ip' => $form_state['values']['ip']))
         ->execute();

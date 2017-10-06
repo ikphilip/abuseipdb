@@ -19,6 +19,21 @@ function abuseipdb_admin_general($form, &$form_state) {
     '#default_value' => variable_get('abuseipdb_api_key', ''),
   );
 
+  $form['abuseipdb_emergency'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Emergency shutdown'),
+    '#description' => t('Disable every AbusIPDB connection. Only cached data will be used.'),
+    '#default_value' => variable_get('abuseipdb_emergency', FALSE),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Form builder for general settings.
+ */
+function abuseipdb_admin_form_check($form, &$form_state) {
+
   $form['abuseipdb_form_ids'] = array(
     '#type' => 'textarea',
     '#title' => t('Form ids'),
@@ -26,18 +41,11 @@ function abuseipdb_admin_general($form, &$form_state) {
     '#default_value' => variable_get('abuseipdb_form_ids', ''),
   );
 
-  $form['abuseipdb_block'] = array(
+  $form['abuseipdb_block_form'] = array(
     '#type' => 'checkbox',
     '#title' => t('Block AbuseIPDB positive ips'),
     '#description' => t("Add user's ip address to the blocked ip table, if it has AbuseIPDB record."),
-    '#default_value' => variable_get('abuseipdb_block', FALSE),
-  );
-
-  $form['abuseipdb_emergency'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Emergency shutdown'),
-    '#description' => t('Disable every AbusIPDB connection. Only cached data will be used.'),
-    '#default_value' => variable_get('abuseipdb_emergency', FALSE),
+    '#default_value' => variable_get('abuseipdb_block_form', FALSE),
   );
 
   return system_settings_form($form);
