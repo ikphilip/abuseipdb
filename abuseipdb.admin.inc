@@ -55,7 +55,7 @@ function abuseipdb_admin_report($form, &$form_state) {
   );
 
   $form['comment'] = array(
-    '#type' => 'textfield',
+    '#type' => 'textarea',
     '#title' => t('Comment'),
     '#description' => t('Why do you want to report.'),
   );
@@ -72,7 +72,7 @@ function abuseipdb_admin_report($form, &$form_state) {
     '#type' => 'checkboxes',
     '#title' => t('Categories'),
     '#options' => $categories,
-    '#description' => theme('list', array('items' => $description)),
+    '#description' => theme('item_list', array('items' => $description)),
   );
 
   $form['block'] = array(
@@ -100,5 +100,11 @@ function abuseipdb_admin_report_validate($form, &$form_state) {
 }
 
 function abuseipdb_admin_report_submit($form, &$form_state) {
+  abuseipdb_report_ip($form_state['values']['ip'], $form_state['values']['categories'], $form_state['values']['comment']);
 
+  if ($form_state['values']['block']) {
+    db_insert('blocked_ips')
+      ->fields(array('ip' => $form_state['values']['ip']))
+      ->execute();
+  }
 }

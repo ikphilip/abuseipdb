@@ -182,12 +182,12 @@ function abuseipdb_report_ip($ip, $categories = array(), $comment = NULL) {
 
       if ($json) {
         $decoded = json_decode($json);
-        return $decoded;
+        if ($decoded && $decoded->success) {
+          drupal_set_message(t('@ip was reported successfully.', array('@ip' => $decoded->ip)));
+        }
       }
     }
   }
-
-  return FALSE;
 }
 
 
