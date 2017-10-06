@@ -103,8 +103,8 @@ function abuseipdb_admin_report_submit($form, &$form_state) {
   abuseipdb_report_ip($form_state['values']['ip'], $form_state['values']['categories'], $form_state['values']['comment']);
 
   if ($form_state['values']['block']) {
-    db_insert('blocked_ips')
-      ->fields(array('ip' => $form_state['values']['ip']))
+    $query = db_merge('blocked_ips')
+      ->key(array('ip' => $form_state['values']['ip']))
       ->execute();
   }
 }
