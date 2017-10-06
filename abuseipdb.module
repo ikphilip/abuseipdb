@@ -182,7 +182,20 @@ function abuseipdb_report_ip($ip, $categories = array(), $comment = NULL) {
 
       if ($json) {
         $decoded = json_decode($json);
-        if ($decoded && $decoded->success) {
+
+        if (is_array($decoded) && !empty($decoded[0]->id)) {
+          foreach ($decoded as $key => $item) {
+            if (!empty($decoded[$key]->id)) {
+              drupal_set_message(t('<strong>@id:</strong> <em>@title</em></br>@detail @meta', array(
+                '@id' => $decoded[$key]->id,
+                '@title' => $decoded[$key]->title,
+                '@detail' => $decoded[$key]->detail,
+                '@meta' => $decoded[$key]->meta,
+              )), WATCHDOG_NOTICE);
+            }
+          }
+        }
+        if (!empty($decoded->success)) {
           drupal_set_message(t('@ip was reported successfully.', array('@ip' => $decoded->ip)));
         }
       }
