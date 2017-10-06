@@ -148,7 +148,7 @@ function abuseipdb_get_result($ip, $days = 365) {
  *   The valid ip address.
  * @param array $categories
  *   The key(s) of the categories
- *   @link https://www.abuseipdb.com/api.html
+ * @link https://www.abuseipdb.com/api.html
  * @param string $comment
  *   The comment text.
  */

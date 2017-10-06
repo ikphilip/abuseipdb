@@ -44,7 +44,7 @@ function abuseipdb_admin_general($form, &$form_state) {
 }
 
 /**
- * Form builder to report an ip address to AbuseIPDB
+ * Form builder to report an ip address to AbuseIPDB.
  */
 function abuseipdb_admin_report($form, &$form_state) {
   $form['ip'] = array(
@@ -99,6 +99,9 @@ function abuseipdb_admin_report_validate($form, &$form_state) {
   }
 }
 
+/**
+ * Form submit callback for abuseipdb_admin_report.
+ */
 function abuseipdb_admin_report_submit($form, &$form_state) {
   abuseipdb_report_ip($form_state['values']['ip'], $form_state['values']['categories'], $form_state['values']['comment']);
 
