@@ -37,7 +37,7 @@ function abuseipdb_admin_form_check($form, &$form_state) {
   $form['abuseipdb_form_ids'] = array(
     '#type' => 'textarea',
     '#title' => t('Form ids'),
-    '#description' => t('List of form ids to check before submission. One id per line!'),
+    '#description' => t('List of form ids to check before submission. Enter one id per line!'),
     '#default_value' => variable_get('abuseipdb_form_ids', ''),
   );
 
@@ -45,7 +45,29 @@ function abuseipdb_admin_form_check($form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Block AbuseIPDB positive ips'),
     '#description' => t("Add user's ip address to the blocked ip table, if it has AbuseIPDB record."),
-    '#default_value' => variable_get('abuseipdb_block_form', FALSE),
+    '#default_value' => variable_get('abuseipdb_block_form', TRUE),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Form builder for path blacklist.
+ */
+function abuseipdb_admin_path_blacklist($form, &$form_state) {
+
+  $form['abuseipdb_paths'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Pages'),
+    '#description' => t("Specify pages where the visitor's ip needs to be reported. Enter one path per line. The '*' character is a wildcard.</br>A good start is <em>wp-login.php</em>, or/and <em>joomla/*</em>. These visitors will be reported to AbuseIPDB in category 'Web App Attack'."),
+    '#default_value' => variable_get('abuseipdb_paths', ''),
+  );
+
+  $form['abuseipdb_block_path'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Block ip'),
+    '#description' => t("Add the visitor's ip address to the blocked ip table."),
+    '#default_value' => variable_get('abuseipdb_block_path', TRUE),
   );
 
   return system_settings_form($form);

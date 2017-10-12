@@ -8,6 +8,48 @@
  */
 
 /**
+ * Implements hook_exit().
+ *
+ * We cannot use hook_boot, because key drupal functions are not loaded then.
+ */
+function abuseipdb_exit() {
+  $pages = variable_get('abuseipdb_paths', '');
+  // Convert the Drupal path to lowercase.
+  $path = drupal_strtolower(drupal_get_path_alias($_GET['q']));
+  // Compare the lowercase internal and lowercase path alias (if any).
+  $page_match = drupal_match_path($path, $pages);
+  if ($path != $_GET['q']) {
+    $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
+  }
+
+  if ($page_match) {
+    $blocked = '';
+    $ip = ip_address();
+    // Set up category to Web App Attack.
+    $categories = array(21);
+    // No needs t()!
+    $comment = format_string('Attempts to probe for or exploit a Drupal !version site on url: /@url. Reported by the module https://www.drupal.org/project/abuseipdb.', array('!version' => VERSION, '@url' => $path));
+    $block = variable_get('abuseipdb_block_path', TRUE);
+
+    if ($block) {
+      $blocked = ' and blocked';
+    }
+
+    abuseipdb_report_ip($ip, $categories, $comment);
+
+    watchdog('abusepdb', 'The ip is reported!blocked to AbuseIPDB due to the attempt on url: @url.', array(
+      '!blocked' => $blocked,
+      '@url' => $path,
+    ), WATCHDOG_NOTICE);
+    if ($block) {
+      $query = db_merge('blocked_ips')
+        ->key(array('ip' => $ip))
+        ->execute();
+    }
+  }
+}
+
+/**
  * Implements hook_permission().
  */
 function abuseipdb_permission() {
@@ -51,6 +93,16 @@ function abuseipdb_menu() {
     'weight' => 0,
   );
 
+  $items['admin/config/services/abuseipdb/path-blacklist'] = array(
+    'title' => 'Path blacklist',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('abuseipdb_admin_path_blacklist'),
+    'file' => 'abuseipdb.admin.inc',
+    'access arguments' => array('administer abuseipdb'),
+    'weight' => 10,
+  );
+
   $items['admin/config/services/abuseipdb/report'] = array(
     'title' => 'Report an IP',
     'type' => MENU_LOCAL_TASK,
@@ -89,8 +141,11 @@ function abuseipdb_check_form($form, &$form_state) {
 
   if (!empty($result)) {
     form_set_error('submit', t('You are not allowed to do this due to the ip validation.'));
-    watchdog('abusepdb', 'Registered AbuseIPDB try in form %formly from %ip.', array('%formly' => $form['#id'], '%ip' => $ip), WATCHDOG_NOTICE, $link = NULL);
-    if (variable_get('abuseipdb_block_form', FALSE)) {
+    watchdog('abusepdb', 'Registered AbuseIPDB attempt in form %form_id from %ip.', array(
+      '%form_id' => $form['#id'],
+      '%ip' => $ip,
+    ), WATCHDOG_NOTICE);
+    if (variable_get('abuseipdb_block_form', TRUE)) {
       $query = db_merge('blocked_ips')
         ->key(array('ip' => $form_state['values']['ip']))
         ->execute();
