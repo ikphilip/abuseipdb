@@ -1,274 +1,56 @@
 <?php
 
-/**
- * @file
- * Developed by Gabor Szanto.
- *  hello@szantogabor.com
- *  http://szantogabor.com
- */
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\abuseipdb\Controller\Report;
 
 /**
- * Implements hook_exit().
+ * Implements hook_help().
+ */
+function abuseipdb_help($route_name, RouteMatchInterface $route_match) {
+  switch($route_name) {
+    case 'help.page.abuseipdb':
+      return t('
+        <h2>AbuseIPDB Help Page</h2>
+        <p>Help text will appear here.</p>
+      ');
+    break;
+  }
+}
+
+/**
+ * Implements hook_form_alter()
+ */
+function abuseipdb_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+  // Add form validator if set in configuration
+  $form_checks = \Drupal::config('abuseipdb.settings')
+    ->get('abuseipdb.forms');
+
+  if (mb_strpos($form_checks, $form['#form_id']) > -1) {
+    $form['#validate'][] = 'abuseipdb_form_validate';
+  }
+}
+
+/**
+ * Check if the current IP has been reported as abusive
  *
- * We cannot use hook_boot, because key drupal functions are not loaded then.
+ * @return boolean
  */
-function abuseipdb_exit() {
-  $pages = variable_get('abuseipdb_paths', '');
-  // Convert the Drupal path to lowercase.
-  $path = drupal_strtolower(drupal_get_path_alias($_GET['q']));
-  // Compare the lowercase internal and lowercase path alias (if any).
-  $page_match = drupal_match_path($path, $pages);
-  if ($path != $_GET['q']) {
-    $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
+function abuseipdb_form_validate(array &$form, FormStateInterface $form_state) {
+  $req_ip = \Drupal::request()->getClientIp();
+  $report = new Report(['ip' => $req_ip]);
+  $report->check();
+  if ($report->isAbusive()) {
+    $form_state->setErrorByName('submit', t('You are not allowed to do this due to the ip validation.'));
   }
-
-  if ($page_match) {
-    $blocked = '';
-    $ip = ip_address();
-    // Set up category to Web App Attack.
-    $categories = array(21);
-    // No needs t()!
-    $comment = format_string('Attempts to probe for or exploit a Drupal !version site on url: /@url. Reported by the module https://www.drupal.org/project/abuseipdb.', array('!version' => VERSION, '@url' => $path));
-    $block = variable_get('abuseipdb_block_path', TRUE);
-
-    if ($block) {
-      $blocked = ' and blocked';
-    }
-
-    abuseipdb_report_ip($ip, $categories, $comment);
-
-    watchdog('abusepdb', 'The ip is reported!blocked to AbuseIPDB due to the attempt on url: @url.', array(
-      '!blocked' => $blocked,
-      '@url' => $path,
-    ), WATCHDOG_NOTICE);
-    if ($block) {
-      $query = db_merge('blocked_ips')
-        ->key(array('ip' => $ip))
-        ->execute();
-    }
+  
+  // Check if IP should be banned from Drupal site
+  $ban_ip = \Drupal::config('abuseipdb.settings')
+    ->get('abuseipdb.forms_ban_ip');
+  if ($ban_ip) {
+    $report->ban();
   }
 }
-
-/**
- * Implements hook_permission().
- */
-function abuseipdb_permission() {
-  return array(
-    'administer abuseipdb' => array(
-      'title' => t('Administer AbusIPDB settings'),
-    ),
-    'skip abuseipdb check' => array(
-      'title' => t('Skip AbusIPDB checking.'),
-    ),
-  );
-}
-
-/**
- * Implements hook_menu().
- */
-function abuseipdb_menu() {
-  $items = array();
-
-  $items['admin/config/services/abuseipdb'] = array(
-    'title' => 'AbuseIPDB',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('abuseipdb_admin_general'),
-    'file' => 'abuseipdb.admin.inc',
-    'access arguments' => array('administer abuseipdb'),
-  );
-
-  $items['admin/config/services/abuseipdb/general'] = array(
-    'title' => 'General settings',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -100,
-  );
-
-  $items['admin/config/services/abuseipdb/form-check'] = array(
-    'title' => 'Form check',
-    'type' => MENU_LOCAL_TASK,
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('abuseipdb_admin_form_check'),
-    'file' => 'abuseipdb.admin.inc',
-    'access arguments' => array('administer abuseipdb'),
-    'weight' => 0,
-  );
-
-  $items['admin/config/services/abuseipdb/path-blacklist'] = array(
-    'title' => 'Path blacklist',
-    'type' => MENU_LOCAL_TASK,
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('abuseipdb_admin_path_blacklist'),
-    'file' => 'abuseipdb.admin.inc',
-    'access arguments' => array('administer abuseipdb'),
-    'weight' => 10,
-  );
-
-  $items['admin/config/services/abuseipdb/report'] = array(
-    'title' => 'Report an IP',
-    'type' => MENU_LOCAL_TASK,
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('abuseipdb_admin_report'),
-    'file' => 'abuseipdb.admin.inc',
-    'access arguments' => array('administer abuseipdb'),
-    'weight' => 100,
-  );
-
-  return $items;
-}
-
-/**
- * Implements hook_form_alter().
- */
-function abuseipdb_form_alter(&$form, &$form_state, $form_id) {
-  if (!user_access('skip abuseipdb check')) {
-    $form_ids = preg_split("/\r\n|\n|\r/", variable_get('abuseipdb_form_ids', ''));
-
-    foreach ($form_ids as $id) {
-      if ($form_id == $id) {
-        array_unshift($form['#validate'], 'abuseipdb_check_form');
-      }
-    }
-  }
-}
-
-/**
- * Form validation to check ip address.
- */
-function abuseipdb_check_form($form, &$form_state) {
-  $ip = ip_address();
-
-  $result = abuseipdb_get_result($ip);
-
-  if (!empty($result)) {
-    form_set_error('submit', t('You are not allowed to do this due to the ip validation.'));
-    watchdog('abusepdb', 'Registered AbuseIPDB attempt in form %form_id from %ip.', array(
-      '%form_id' => $form['#id'],
-      '%ip' => $ip,
-    ), WATCHDOG_NOTICE);
-    if (variable_get('abuseipdb_block_form', TRUE)) {
-      $query = db_merge('blocked_ips')
-        ->key(array('ip' => $form_state['values']['ip']))
-        ->execute();
-    }
-  }
-
-}
-
-/**
- * Get result from abuseipdb.
- */
-function abuseipdb_get_result($ip, $days = 365) {
-  $api_key = variable_get('abuseipdb_api_key', FALSE);
-
-  if ($api_key) {
-    $link = "https://www.abuseipdb.com/check/$ip/json";
-    $query = array('key' => $api_key);
-
-    if (is_int($days)) {
-      $query += array('days' => $days);
-    }
-
-    $url = url($link, array(
-      'query' => $query,
-      'external' => TRUE,
-      'absolute' => TRUE,
-      'https' => TRUE,
-    ));
-
-    $cid = 'abuseipdb' . $ip;
-
-    // Only process new request if not emergency,
-    if (!variable_get('abuseipdb_emergency', FALSE)) {
-      if (!$cache = cache_get($cid)) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        $json = curl_exec($ch);
-        curl_close($ch);
-
-        if ($json) {
-          $decoded = json_decode($json);
-          cache_set($cid, $decoded);
-          return $decoded;
-        }
-        return FALSE;
-      }
-      else {
-        return $cache->data;
-      }
-    }
-
-    // If emergency, only try from cache.
-    if (!$cache = cache_get($cid)) {
-      return $cache->data;
-    }
-  }
-
-  return FALSE;
-}
-
-/**
- * Report an ip address to AbuseIPDB.
- *
- * @param string $ip
- *   The valid ip address.
- * @param array $categories
- *   The key(s) of the categories
- * @link https://www.abuseipdb.com/api.html
- * @param string $comment
- *   The comment text.
- */
-function abuseipdb_report_ip($ip, $categories = array(), $comment = NULL) {
-  $api_key = variable_get('abuseipdb_api_key', FALSE);
-
-  if ($api_key) {
-    $query = array(
-      'key' => $api_key,
-      'ip' => $ip,
-      'category' => implode(',', $categories),
-      'comment' => $comment,
-    );
-
-    $link = "https://www.abuseipdb.com/report/json";
-
-    $url = url($link, array(
-      'query' => $query,
-      'external' => TRUE,
-      'absolute' => TRUE,
-      'https' => TRUE,
-    ));
-
-    // Only process new request if not emergency,
-    if (!variable_get('abuseipdb_emergency', FALSE)) {
-      $ch = curl_init();
-      curl_setopt($ch, CURLOPT_URL, $url);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-      $json = curl_exec($ch);
-      curl_close($ch);
-
-      if ($json) {
-        $decoded = json_decode($json);
-
-        if (is_array($decoded) && !empty($decoded[0]->id)) {
-          foreach ($decoded as $key => $item) {
-            if (!empty($decoded[$key]->id)) {
-              drupal_set_message(t('<strong>@id:</strong> <em>@title</em></br>@detail @meta', array(
-                '@id' => $decoded[$key]->id,
-                '@title' => $decoded[$key]->title,
-                '@detail' => $decoded[$key]->detail,
-                '@meta' => $decoded[$key]->meta,
-              )), WATCHDOG_NOTICE);
-            }
-          }
-        }
-        if (!empty($decoded->success)) {
-          drupal_set_message(t('@ip was reported successfully.', array('@ip' => $decoded->ip)));
-        }
-      }
-    }
-  }
-}
-
 
 /**
  * Helper function to get abuseipdb categories.

@@ -1,5 +1,0 @@
-name = AbuseIPDB
-description = API to use AbuseIPDB
-package = Other
-core = 7.x
-configure = admin/config/services/abuseipdb
