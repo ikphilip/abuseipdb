@@ -6,5 +6,10 @@
     "Drupal",
     "Security"
   ],
-  "homepage": "https://www.drupal.org/project/abuseipdb"
+  "homepage": "https://www.drupal.org/project/abuseipdb",
+  "require-dev": {
+    "drupal/coder": "^8.2.12",
+    "squizlabs/php_codesniffer": "^2.9",
+    "dealerdirect/phpcodesniffer-composer-installer": "^0.4.4"
+  }
 }
