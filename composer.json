@@ -1,5 +1,5 @@
 {
-  "name": "drupal/abuseipdb",
+  "name": "ikphilip/abuseipdb",
   "type": "drupal-module",
   "description": "Integrates Drupal site with AbuseIPDB to report malicious activity.",
   "keywords": [
